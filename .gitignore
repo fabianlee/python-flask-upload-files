@@ -1,0 +1,5 @@
+.git
+*.log
+.vscode
+__pycache__
+vendor/*

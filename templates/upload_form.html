@@ -1,0 +1,70 @@
+<html>
+<head>
+<script language="javascript">
+function changeFormAction() {
+    // get form and field elements    
+    theform = document.getElementById('singleuploadchunked')
+    simplefilename = document.getElementById('thefile').value.split('\\').pop()
+
+    // set value of field and form action
+    document.getElementById('thefilename').value = simplefilename
+    theform.action = "/singleuploadchunked/" + simplefilename
+}
+function submitForm() {
+    // get form and field elements    
+    theform = document.getElementById('singleuploadchunked')
+    if (document.getElementById('thefile').value=='') {
+      alert("Need to provide a file to upload first!")
+    }else {
+      theform.submit()
+    }
+}
+</script>
+
+
+</head>
+<body>
+
+{% with messages = get_flashed_messages() %}
+{% if messages %}
+<p style="color: red; font-weight: bold;">
+{% for message in messages %}
+  <p>{{ message }}</p>
+{% endfor %}
+</p>
+{% endif %}
+{% endwith %}
+
+<h2>Single file chunked submission form</h2>
+<form id="singleuploadchunked" action="/singleuploadchunked/" method="POST" enctype="multipart/form-data">
+  <input type="file" id="thefile" name="file" onChange="changeFormAction()" />
+  <input type="text" id="thefilename" value=""/>
+  <input type="button" value="submit single file chunked" onclick="submitForm()"/>
+</form>
+
+<h2>Single file submission form</h2>
+<form action="/multipleupload" method="POST" enctype="multipart/form-data">
+  <input type="file" name="files[]" />
+  <input type="submit" value="submit single file"/>
+</form>
+
+
+<h2>Multiple file submission form</h2>
+<form action="/multipleupload" method="POST" enctype="multipart/form-data">
+  <input type="file" name="files[]" multiple />
+  <input type="submit" value="submit multiple files"/>
+</form>
+
+
+<h2>No file form, GET</h2>
+<form action="/multipleupload" method="GET">
+  <input type="submit" value="Submit GET with no file element" />
+</form>
+<h2>No file form, POST</h2>
+<form action="/multipleupload" method="POST">
+  <input type="submit" value="Submit POST with no file element" />
+</form>
+
+
+</body>
+</html>

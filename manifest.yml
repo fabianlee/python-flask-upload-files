@@ -1,0 +1,12 @@
+---
+applications:
+- name: uploadfiles
+  memory: 128M
+  disk: 3096M
+  instances: 1
+  random-route: false
+
+  env:
+    FOO: myvalue
+    #http_proxy: http://squid:3128
+    #https_proxy: http://squid:3128
