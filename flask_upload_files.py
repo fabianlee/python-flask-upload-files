@@ -4,12 +4,8 @@ Flask application that receives uploaded content from browser
 
 """
 import sys
-import random
-import string
-import time
 import os
 import tempfile
-from datetime import datetime
 import flask
 from werkzeug.utils import secure_filename
 
@@ -29,6 +25,7 @@ def entry_point():
 
 @app.route('/upload_form')
 def upload_form():
+    """ show upload form with multiple scenarios """
     return flask.render_template('upload_form.html')
 
 @app.route("/singleuploadchunked/<filename>", methods=["POST", "PUT"])
@@ -36,7 +33,7 @@ def single_upload_chunked(filename=None):
     """Saves single file uploaded from <input type="file">, uses stream to read in by chunks
 
        When using direct access to flask.request.stream
-       you cannot access request.file or request.form first, 
+       you cannot access request.file or request.form first,
        otherwise stream is already parsed and empty
        This is because of internal workings of werkzeug
 
@@ -48,7 +45,7 @@ def single_upload_chunked(filename=None):
        Negative test (not whitelisted file extension):
        curl -X POST http://localhost:8080/singleuploadchunked/testdoc.docx -d "@tests/testdoc.docx"
     """
-    if not "Content-Length" in flask.request.headers:
+    if "Content-Length" not in flask.request.headers:
         add_flash_message("did not sense Content-Length in headers")
         return flask.redirect(flask.url_for("upload_form"))
 
@@ -79,7 +76,6 @@ def single_upload_chunked(filename=None):
         f.flush()
         print("")
     return flask.redirect(flask.url_for("upload_form"))
-    
 
 
 @app.route("/multipleupload", methods=["GET","POST", "PUT"])
@@ -100,7 +96,7 @@ def multiple_upload(file_element_name="files[]"):
     """
 
     # must be POST/PUT
-    if not (flask.request.method in ['POST','PUT']):
+    if flask.request.method not in ['POST', 'PUT']:
         add_flash_message("Can only upload on POST/PUT methods")
         return flask.redirect(flask.url_for("upload_form"))
 
@@ -127,7 +123,7 @@ def multiple_upload(file_element_name="files[]"):
         else:
             add_flash_message("not going to process file with extension " + filename)
     return flask.redirect(flask.url_for("upload_form"))
-    
+
 def add_flash_message(msg):
     """Provides message to end user in browser"""
     print(msg)
