@@ -7,12 +7,22 @@ import sys
 import os
 import tempfile
 import flask
+# Python2
+# import StringIO
+from io import StringIO
 from werkzeug.utils import secure_filename
 
 # whitelist of file extensions
 ALLOWED_EXTENSIONS = set(['txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'])
 
 app = flask.Flask(__name__)
+
+@app.errorhandler(OSError)
+def handle_oserror(oserror):
+    """ Flask framework hooks into this function is OSError not handled by routes """
+    response = flask.jsonify({"message":StringIO(str(oserror)).getvalue()})
+    response.status_code = 500
+    return response
 
 def allowed_file(filename):
     """ whitelists file extensions for security reasons """
@@ -21,7 +31,7 @@ def allowed_file(filename):
 @app.route("/")
 def entry_point():
     """ simple entry for test """
-    return flask.render_template('index.html')
+    return flask.render_template('index.html',  tempdir=tempfile.gettempdir())
 
 @app.route('/upload_form')
 def upload_form():
@@ -57,28 +67,37 @@ def single_upload_chunked(filename=None):
         add_flash_message("not going to process file with extension " + filename)
         return flask.redirect(flask.url_for("upload_form"))
 
-
     print("Total Content-Length: " + flask.request.headers['Content-Length'])
     fileFullPath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
 
     chunk_size = app.config['CHUNK_SIZE']
-    with open(fileFullPath, "wb") as f:
-        reached_end = False
-        while not reached_end:
-            chunk = flask.request.stream.read(chunk_size)
-            if len(chunk) == 0:
-                reached_end = True
-            else:
-                sys.stdout.write(".")
-                #print("wrote chunk of {}".format(len(chunk)))
-                f.write(chunk)
-        sys.stdout.flush()
-        f.flush()
-        print("")
+    try:
+        with open(fileFullPath, "wb") as f:
+            reached_end = False
+            while not reached_end:
+                chunk = flask.request.stream.read(chunk_size)
+                if len(chunk) == 0:
+                    reached_end = True
+                else:
+                    sys.stdout.write(".")
+                    sys.stdout.flush()
+                    # the idea behind this chunked upload is that large content could be persisted
+                    # somewhere besides the container: S3, NFS, etc...
+                    # So we use a container with minimal mem/disk, that can handle large files
+                    #
+                    #f.write(chunk)
+                    #f.flush()
+                    #print("wrote chunk of {}".format(len(chunk)))
+    except OSError as e:
+        add_flash_message("ERROR writing file " + filename + " to disk: " + StringIO(str(e)).getvalue())
+        return flask.redirect(flask.url_for("upload_form"))
+
+    print("")
+    add_flash_message("SUCCESS uploading single file: " + filename)
     return flask.redirect(flask.url_for("upload_form"))
 
 
-@app.route("/multipleupload", methods=["GET","POST", "PUT"])
+@app.route("/multipleupload", methods=["GET", "POST", "PUT"])
 def multiple_upload(file_element_name="files[]"):
     """Saves files uploaded from <input type="file">, can be multiple files
     
@@ -100,6 +119,15 @@ def multiple_upload(file_element_name="files[]"):
         add_flash_message("Can only upload on POST/PUT methods")
         return flask.redirect(flask.url_for("upload_form"))
 
+    # files will be materialized as soon as we touch request.files,
+    # so check for errors right up front
+    try:
+        flask.request.files
+    except OSError as e:
+        print("ERROR ON INITIAL TOUCH OF request.files")
+        add_flash_message("ERROR materializing files to disk: " + StringIO(str(e)).getvalue())
+        return flask.redirect(flask.url_for("upload_form"))
+
     # must have <input type="file"> element
     if file_element_name not in flask.request.files:
         add_flash_message('No files uploaded')
@@ -115,13 +143,17 @@ def multiple_upload(file_element_name="files[]"):
 
     # loop through uploaded files, saving
     for ufile in files:
-        filename = secure_filename(ufile.filename)
-        if allowed_file(filename):
-            print("uploading file {} of type {}".format(filename,ufile.content_type))
-            ufile.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            flask.flash("Just uploaded: " + filename)
-        else:
-            add_flash_message("not going to process file with extension " + filename)
+        try:
+            filename = secure_filename(ufile.filename)
+            if allowed_file(filename):
+                print("uploading file {} of type {}".format(filename, ufile.content_type))
+                ufile.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                flask.flash("Just uploaded: " + filename)
+            else:
+                add_flash_message("not going to process file with extension " + filename)
+        except OSError as e:
+            add_flash_message("ERROR writing file " + filename + " to disk: " + StringIO(str(e)).getvalue())
+
     return flask.redirect(flask.url_for("upload_form"))
 
 def add_flash_message(msg):
@@ -129,13 +161,26 @@ def add_flash_message(msg):
     print(msg)
     flask.flash(msg)
 
-if __name__ == "__main__":
+# from console it is the standard '__main__', but from docker flask it is 'main'
+if __name__ == "__main__" or __name__ == "main":
+
+    # docker flask image
+    if __name__ == "main":
+        print("Overriding tempdir for docker image")
+        tempfile.tempdir = os.getenv("TEMP_DIR", "/tmp")
     print("tempdir: " + tempfile.gettempdir())
     app.config['UPLOAD_FOLDER'] = tempfile.gettempdir()
-    app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB limit
+
+    # Below error if MAX_CONTENT_LENGTH is exceeded by upload
+    # [error] 11#11: *1 readv() failed (104: Connection reset by peer) while reading upstream
+    #app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB limit
+    app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024 * 1024  # 2GB limit
     app.config['CHUNK_SIZE'] = 4096
-    # secret key used for flask.flash of messages
+
+    # secret key used for flask.flash messages
     app.secret_key = 'abc123'
 
-    port = int(os.getenv("PORT", 8080))
-    app.run(host='0.0.0.0', port=port)
+    # docker flask uwsgi starts itself
+    if __name__ == "__main__":
+        port = int(os.getenv("PORT", 8080))
+        app.run(host='0.0.0.0', port=port)
