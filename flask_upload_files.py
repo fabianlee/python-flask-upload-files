@@ -75,6 +75,8 @@ def single_upload_chunked(filename=None):
                 sys.stdout.write(".")
                 #print("wrote chunk of {}".format(len(chunk)))
                 f.write(chunk)
+        sys.stdout.flush()
+        f.flush()
         print("")
     return flask.redirect(flask.url_for("upload_form"))
     
@@ -132,7 +134,7 @@ def add_flash_message(msg):
     flask.flash(msg)
 
 if __name__ == "__main__":
-    #print("tempdir: " + tempfile.gettempdir())
+    print("tempdir: " + tempfile.gettempdir())
     app.config['UPLOAD_FOLDER'] = tempfile.gettempdir()
     app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB limit
     app.config['CHUNK_SIZE'] = 4096

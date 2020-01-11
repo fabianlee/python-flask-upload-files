@@ -42,25 +42,25 @@ function submitForm() {
   <input type="button" value="submit single file chunked" onclick="submitForm()"/>
 </form>
 
-<h2>Single file submission form</h2>
+<h2>File submission form (single)</h2>
 <form action="/multipleupload" method="POST" enctype="multipart/form-data">
   <input type="file" name="files[]" />
   <input type="submit" value="submit single file"/>
 </form>
 
 
-<h2>Multiple file submission form</h2>
+<h2>File submission form (double)</h2>
 <form action="/multipleupload" method="POST" enctype="multipart/form-data">
   <input type="file" name="files[]" multiple />
   <input type="submit" value="submit multiple files"/>
 </form>
 
 
-<h2>No file form, GET</h2>
+<h2>File submission form with GET (No file element)</h2>
 <form action="/multipleupload" method="GET">
   <input type="submit" value="Submit GET with no file element" />
 </form>
-<h2>No file form, POST</h2>
+<h2>File submission form with POST (No file element)</h2>
 <form action="/multipleupload" method="POST">
   <input type="submit" value="Submit POST with no file element" />
 </form>
