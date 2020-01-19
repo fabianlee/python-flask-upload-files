@@ -1,0 +1,21 @@
+# https://github.com/tiangolo/uwsgi-nginx-flask-docker
+# python3.7 layer is 968Mb, python3.6-alpine3.7 is 189Mb
+FROM tiangolo/uwsgi-nginx-flask:python3.6-alpine3.7
+
+ENV LISTEN_PORT 8080
+
+# if this directory exists inside container, will be used for file uploads
+ENV TEMP_DIR /tempdisk
+
+EXPOSE 8080
+
+# add our flask app, name it to 'main.py'
+ADD flask_upload_files.py /app/main.py
+
+# html templates
+COPY ./templates /app/templates
+
+# docker 'uwsgi-nginx-flask-docker' uses nginx to serve static files out of 'static'
+COPY ./tests /app/static
+
+
