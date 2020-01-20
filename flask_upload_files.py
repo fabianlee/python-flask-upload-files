@@ -166,8 +166,10 @@ if __name__ == "__main__" or __name__ == "main":
 
     # docker flask image
     if __name__ == "main":
-        print("Overriding tempdir for docker image")
-        tempfile.tempdir = os.getenv("TEMP_DIR", "/tmp")
+        if not os.getenv("TEMP_DIR") is None:
+            if os.path.isdir(os.getenv("TEMP_DIR")):
+              print("Overriding tempdir for docker image")
+              tempfile.tempdir = os.getenv("TEMP_DIR")
     print("tempdir: " + tempfile.gettempdir())
     app.config['UPLOAD_FOLDER'] = tempfile.gettempdir()
 
